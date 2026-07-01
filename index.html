@@ -112,6 +112,23 @@
     font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50;
   }
   .toast.show{ opacity:1; }
+
+  /* 印刷用 */
+  #printArea{ display:none; }
+  @media print{
+    header, .name-row, .big-btn, .hint, .day-pick, .section-title, #list,
+    .footer-actions, .toast{ display:none !important; }
+    body{ background:#fff; padding:0; }
+    #printArea{ display:block !important; padding:24px 20px; color:#000; }
+    #printArea .p-head{ font-size:20px; font-weight:bold; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px; }
+    #printArea .p-sub{ font-size:13px; font-weight:normal; }
+    #printArea .p-rec{ border-bottom:1px solid #bbb; padding:8px 0; }
+    #printArea .p-time{ font-size:16px; font-weight:bold; }
+    #printArea .p-place{ font-weight:normal; }
+    #printArea .p-memo{ font-size:14px; margin:3px 0 0 8px; }
+    #printArea .p-geo{ font-size:11px; color:#555; margin-left:8px; word-break:break-all; }
+    #printArea .p-empty{ color:#666; }
+  }
 </style>
 </head>
 <body>
@@ -142,9 +159,12 @@
 </div>
 
 <div class="footer-actions">
-  <button class="foot-btn" id="copyBtn">日報をコピー</button>
+  <button class="foot-btn" id="copyBtn">コピー</button>
   <button class="foot-btn" id="csvBtn">表で保存</button>
+  <button class="foot-btn" id="printBtn">印刷</button>
 </div>
+
+<div id="printArea"></div>
 
 <div class="toast" id="toast"></div>
 
@@ -334,6 +354,23 @@ document.getElementById("csvBtn").addEventListener("click",()=>{
   a.download=`運行日報_${selectedDay}.csv`;
   a.click();
   toast("表を保存しました");
+});
+
+// ---- 印刷 ----
+document.getElementById("printBtn").addEventListener("click",()=>{
+  const name=nameInput.value.trim()||"（お名前未記入）";
+  const recs=records.filter(r=>r.day===selectedDay);
+  let body = recs.length===0 ? `<div class="p-empty">この日の記録はありません。</div>` :
+    recs.map(r=>`
+      <div class="p-rec">
+        <div class="p-time">${hhmm(r.time)}　<span class="p-place">${escHtml(r.place||"（行き先未記入）")}</span></div>
+        ${r.memo?`<div class="p-memo">${escHtml(r.memo)}</div>`:""}
+        ${r.lat!=null?`<div class="p-geo">地図 https://www.google.com/maps?q=${r.lat},${r.lng}</div>`:""}
+      </div>`).join("");
+  document.getElementById("printArea").innerHTML =
+    `<div class="p-head">運行日報　<span class="p-sub">阪神食品株式会社</span><br>
+       <span class="p-sub">${jpDate(selectedDay)}　運転手：${escHtml(name)}　（${recs.length}件）</span></div>${body}`;
+  window.print();
 });
 
 // ---- トースト ----
