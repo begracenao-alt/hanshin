@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>運行日報</title>
+<style>
+  :root{
+    --main:#6b8f7a;      /* やさしい緑 */
+    --main-d:#557462;
+    --bg:#f4f1ea;         /* あたたかい生成り */
+    --card:#ffffff;
+    --line:#e3ddcf;
+    --text:#3a3a34;
+    --sub:#8a8578;
+    --accent:#c98a5e;     /* やさしい橙 */
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,"Hiragino Kaku Gothic ProN","メイリオ",sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.7;
+    padding-bottom:120px;
+  }
+  header{
+    background:var(--main); color:#fff; padding:16px 18px 14px;
+    position:sticky; top:0; z-index:10;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);
+  }
+  header .company{ font-size:12px; opacity:.9; letter-spacing:.08em; margin-bottom:1px; }
+  header h1{ margin:0; font-size:19px; letter-spacing:.05em; }
+  header .date{ font-size:13px; opacity:.9; margin-top:2px; }
+  .wrap{ padding:16px 14px; max-width:560px; margin:0 auto; }
+
+  .name-row{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:14px; display:flex; align-items:center; gap:10px;
+  }
+  .name-row label{ font-size:14px; color:var(--sub); white-space:nowrap; }
+  .name-row input{
+    flex:1; border:none; border-bottom:2px solid var(--line); font-size:17px;
+    padding:6px 2px; background:transparent; color:var(--text);
+  }
+  .name-row input:focus{ outline:none; border-bottom-color:var(--main); }
+
+  .big-btn{
+    width:100%; background:var(--main); color:#fff; border:none; border-radius:18px;
+    font-size:20px; font-weight:bold; padding:22px; margin-bottom:8px;
+    box-shadow:0 4px 0 var(--main-d); cursor:pointer; letter-spacing:.05em;
+  }
+  .big-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--main-d); }
+  .hint{ text-align:center; color:var(--sub); font-size:13px; margin:2px 0 18px; }
+
+  .section-title{ font-size:15px; color:var(--sub); margin:22px 4px 10px; font-weight:bold; }
+  .count{ color:var(--main-d); }
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.04);
+  }
+  .card .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .card .time{ font-size:22px; font-weight:bold; color:var(--main-d); }
+  .card .geo{ font-size:12px; }
+  .card .geo a{ color:var(--accent); text-decoration:none; border-bottom:1px dotted var(--accent); }
+  .card .geo .none{ color:var(--sub); }
+  .card input.place{
+    width:100%; border:none; border-bottom:1.5px solid var(--line);
+    font-size:16px; padding:6px 2px; margin-bottom:8px; background:transparent; color:var(--text);
+  }
+  .card input.place:focus{ outline:none; border-bottom-color:var(--main); }
+  .card textarea.memo{
+    width:100%; border:1px solid var(--line); border-radius:10px;
+    font-size:15px; padding:8px 10px; min-height:56px; resize:vertical;
+    background:#fcfbf7; color:var(--text); font-family:inherit; line-height:1.6;
+  }
+  .card textarea.memo:focus{ outline:none; border-color:var(--main); }
+  .tags{ margin:8px 0 2px; display:flex; flex-wrap:wrap; gap:6px; }
+  .tag{
+    font-size:13px; background:#eef3ef; color:var(--main-d); border:1px solid #dfe8e1;
+    border-radius:20px; padding:4px 12px; cursor:pointer;
+  }
+  .tag:active{ background:#dfe8e1; }
+  .del{
+    background:none; border:none; color:#c78; font-size:13px; cursor:pointer; padding:4px 2px;
+  }
+
+  .empty{ text-align:center; color:var(--sub); padding:30px 10px; font-size:14px; }
+
+  .footer-actions{
+    position:fixed; left:0; right:0; bottom:0; background:rgba(244,241,234,.96);
+    border-top:1px solid var(--line); padding:10px 14px; display:flex; gap:10px;
+    max-width:560px; margin:0 auto;
+  }
+  .foot-btn{
+    flex:1; border:1px solid var(--main); background:#fff; color:var(--main-d);
+    border-radius:12px; font-size:15px; font-weight:bold; padding:14px 8px; cursor:pointer;
+  }
+  .foot-btn:active{ background:#eef3ef; }
+
+  .day-pick{ margin:0 4px 4px; }
+  .day-pick select{
+    font-size:14px; padding:6px 8px; border-radius:10px; border:1px solid var(--line);
+    background:#fff; color:var(--text);
+  }
+  .toast{
+    position:fixed; bottom:88px; left:50%; transform:translateX(-50%);
+    background:var(--main-d); color:#fff; padding:10px 18px; border-radius:30px;
+    font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="company">阪神食品株式会社</div>
+  <h1>運行日報</h1>
+  <div class="date" id="headerDate"></div>
+</header>
+
+<div class="wrap">
+
+  <div class="name-row">
+    <label>運転手のお名前</label>
+    <input type="text" id="driverName" placeholder="ここにお名前" />
+  </div>
+
+  <button class="big-btn" id="arriveBtn">＋　配達先に着いた</button>
+  <div class="hint">着いたら、このボタンをポンと押してください</div>
+
+  <div class="day-pick">
+    <select id="daySelect"></select>
+  </div>
+
+  <div class="section-title">この日の記録　<span class="count" id="count"></span></div>
+  <div id="list"></div>
+
+</div>
+
+<div class="footer-actions">
+  <button class="foot-btn" id="copyBtn">日報をコピー</button>
+  <button class="foot-btn" id="csvBtn">表で保存</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY = "unkou-nippou-v1";
+const NAMEKEY = "unkou-nippou-name";
+
+function loadAll(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch(e){ return []; }
+}
+function saveAll(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
+
+let records = loadAll();
+
+// お名前
+const nameInput = document.getElementById("driverName");
+nameInput.value = localStorage.getItem(NAMEKEY) || "";
+nameInput.addEventListener("input", ()=> localStorage.setItem(NAMEKEY, nameInput.value.trim()));
+
+// 日付まわり
+function todayStr(d){
+  d = d || new Date();
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), da=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${da}`;
+}
+function jpDate(str){
+  const [y,m,d]=str.split("-");
+  const week=["日","月","火","水","木","金","土"];
+  const dt=new Date(+y,+m-1,+d);
+  return `${+m}月${+d}日（${week[dt.getDay()]}）`;
+}
+let selectedDay = todayStr();
+document.getElementById("headerDate").textContent = jpDate(selectedDay) + " の記録";
+
+// 時刻表示
+function hhmm(iso){
+  const d=new Date(iso);
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+
+function newId(){ return "r"+Math.floor(performance.now()*1000)+"-"+records.length; }
+
+// ---- 描画 ----
+function render(){
+  // 日付リスト
+  const days=[...new Set(records.map(r=>r.day))];
+  if(!days.includes(todayStr())) days.unshift(todayStr());
+  days.sort().reverse();
+  if(!days.includes(selectedDay)) selectedDay=days[0];
+  const sel=document.getElementById("daySelect");
+  sel.innerHTML="";
+  days.forEach(dy=>{
+    const o=document.createElement("option");
+    o.value=dy; o.textContent=jpDate(dy)+(dy===todayStr()?"（きょう）":"");
+    if(dy===selectedDay) o.selected=true;
+    sel.appendChild(o);
+  });
+  document.getElementById("headerDate").textContent = jpDate(selectedDay) + " の記録";
+
+  const dayRecs = records.filter(r=>r.day===selectedDay);
+  document.getElementById("count").textContent = dayRecs.length ? `（${dayRecs.length}件）` : "";
+
+  const list=document.getElementById("list");
+  list.innerHTML="";
+  if(dayRecs.length===0){
+    list.innerHTML=`<div class="empty">まだ記録はありません。<br>着いたら上のボタンを押してくださいね。</div>`;
+    return;
+  }
+  // 新しい順
+  dayRecs.slice().reverse().forEach(r=>{
+    const card=document.createElement("div");
+    card.className="card";
+    let geoHtml;
+    if(r.lat!=null){
+      geoHtml=`<a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank">📍 地図で見る</a>`;
+    } else if(r.geoPending){
+      geoHtml=`<span class="none">📍 現在地をさがしています…</span>`;
+    } else {
+      geoHtml=`<span class="none">📍 場所は取れませんでした</span>`;
+    }
+    card.innerHTML=`
+      <div class="top">
+        <div class="time">${hhmm(r.time)}</div>
+        <div class="geo">${geoHtml}</div>
+      </div>
+      <input class="place" placeholder="行き先の名前（例：〇〇様、△△商店）" value="${escAttr(r.place||"")}">
+      <textarea class="memo" placeholder="やり取りのメモ（例：お渡し済み・不在で再配達など）">${escHtml(r.memo||"")}</textarea>
+      <div class="tags">
+        <span class="tag">お渡し済み</span>
+        <span class="tag">不在</span>
+        <span class="tag">再配達</span>
+        <span class="tag">受け取りサインあり</span>
+      </div>
+      <div style="text-align:right"><button class="del">この記録を消す</button></div>
+    `;
+    const placeEl=card.querySelector(".place");
+    const memoEl=card.querySelector(".memo");
+    placeEl.addEventListener("input",()=>{ r.place=placeEl.value; saveAll(records); });
+    memoEl.addEventListener("input",()=>{ r.memo=memoEl.value; saveAll(records); });
+    card.querySelectorAll(".tag").forEach(t=>{
+      t.addEventListener("click",()=>{
+        memoEl.value = memoEl.value ? memoEl.value.replace(/\s*$/,"") + "／" + t.textContent : t.textContent;
+        r.memo=memoEl.value; saveAll(records);
+      });
+    });
+    card.querySelector(".del").addEventListener("click",()=>{
+      if(confirm("この記録を消してもいいですか？")){
+        records=records.filter(x=>x.id!==r.id); saveAll(records); render();
+      }
+    });
+    list.appendChild(card);
+  });
+}
+
+function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escAttr(s){ return escHtml(s).replace(/"/g,"&quot;"); }
+
+// ---- 着いたボタン ----
+document.getElementById("arriveBtn").addEventListener("click",()=>{
+  const now=new Date();
+  const rec={ id:newId(), day:todayStr(now), time:now.toISOString(),
+              place:"", memo:"", lat:null, lng:null, geoPending:true };
+  records.push(rec);
+  selectedDay=todayStr(now);
+  saveAll(records); render();
+  toast("記録しました");
+  // 現在地を取得
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ rec.lat=+pos.coords.latitude.toFixed(6); rec.lng=+pos.coords.longitude.toFixed(6);
+             rec.geoPending=false; saveAll(records); render(); },
+      err=>{ rec.geoPending=false; saveAll(records); render(); },
+      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+    );
+  } else { rec.geoPending=false; saveAll(records); render(); }
+});
+
+document.getElementById("daySelect").addEventListener("change",e=>{ selectedDay=e.target.value; render(); });
+
+// ---- 日報コピー ----
+function buildText(){
+  const name=nameInput.value.trim()||"（お名前未記入）";
+  const recs=records.filter(r=>r.day===selectedDay);
+  let t=`【運行日報】${jpDate(selectedDay)}　${name}\n`;
+  if(recs.length===0){ t+="（記録なし）"; return t; }
+  recs.forEach(r=>{
+    t+=`\n${hhmm(r.time)}　${r.place||"（行き先未記入）"}`;
+    if(r.memo) t+=`\n　└ ${r.memo}`;
+    if(r.lat!=null) t+=`\n　└ 地図 https://www.google.com/maps?q=${r.lat},${r.lng}`;
+  });
+  return t;
+}
+document.getElementById("copyBtn").addEventListener("click",async()=>{
+  const t=buildText();
+  try{ await navigator.clipboard.writeText(t); toast("日報をコピーしました"); }
+  catch(e){ prompt("下をコピーしてください（長押し→コピー）", t); }
+});
+
+// ---- CSV保存 ----
+document.getElementById("csvBtn").addEventListener("click",()=>{
+  const name=nameInput.value.trim()||"";
+  const recs=records.filter(r=>r.day===selectedDay);
+  let rows=[["日付","時刻","運転手","行き先","メモ","緯度","経度","地図リンク"]];
+  recs.forEach(r=>{
+    rows.push([selectedDay, hhmm(r.time), name, r.place||"", r.memo||"",
+      r.lat??"", r.lng??"", r.lat!=null?`https://www.google.com/maps?q=${r.lat},${r.lng}`:""]);
+  });
+  const csv="﻿"+rows.map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`運行日報_${selectedDay}.csv`;
+  a.click();
+  toast("表を保存しました");
+});
+
+// ---- トースト ----
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById("toast");
+  el.textContent=msg; el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove("show"),1600);
+}
+
+render();
+</script>
+</body>
+</html>
