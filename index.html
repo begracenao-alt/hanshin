@@ -62,6 +62,11 @@
   .card .geo{ font-size:12px; }
   .card .geo a{ color:var(--accent); text-decoration:none; border-bottom:1px dotted var(--accent); }
   .card .geo .none{ color:var(--sub); }
+  .card .geo .geo-retry{
+    background:#fbeee6; color:var(--accent); border:1px solid #eeced9;
+    border-radius:20px; font-size:12px; padding:5px 12px; cursor:pointer;
+  }
+  .card .geo .geo-retry:active{ background:#f5ddd0; }
   .card input.place{
     width:100%; border:none; border-bottom:1.5px solid var(--line);
     font-size:16px; padding:6px 2px; margin-bottom:8px; background:transparent; color:var(--text);
@@ -219,7 +224,7 @@ function render(){
     } else if(r.geoPending){
       geoHtml=`<span class="none">📍 現在地をさがしています…</span>`;
     } else {
-      geoHtml=`<span class="none">📍 場所は取れませんでした</span>`;
+      geoHtml=`<button class="geo-retry" data-id="${r.id}">📍 ${escHtml(r.geoErr||"場所が取れませんでした")}｜もう一度さがす</button>`;
     }
     card.innerHTML=`
       <div class="top">
@@ -251,6 +256,10 @@ function render(){
         records=records.filter(x=>x.id!==r.id); saveAll(records); render();
       }
     });
+    const retry=card.querySelector(".geo-retry");
+    if(retry) retry.addEventListener("click",()=>{
+      const rr=records.find(x=>x.id===retry.dataset.id); if(rr) captureGeo(rr);
+    });
     list.appendChild(card);
   });
 }
@@ -258,24 +267,34 @@ function render(){
 function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function escAttr(s){ return escHtml(s).replace(/"/g,"&quot;"); }
 
+// ---- 現在地の取得（着いたボタン・もう一度さがす、両方でつかう）----
+function captureGeo(rec){
+  rec.geoPending=true; rec.geoErr=null; saveAll(records); render();
+  if(!navigator.geolocation){
+    rec.geoPending=false; rec.geoErr="このスマホでは場所が使えません"; saveAll(records); render(); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ rec.lat=+pos.coords.latitude.toFixed(6); rec.lng=+pos.coords.longitude.toFixed(6);
+           rec.geoPending=false; rec.geoErr=null; saveAll(records); render(); },
+    err=>{ rec.geoPending=false;
+           if(err.code===1) rec.geoErr="居場所の許可がオフです";
+           else if(err.code===3) rec.geoErr="時間がかかりました";
+           else rec.geoErr="いま場所が取れませんでした";
+           saveAll(records); render(); },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:30000 }
+  );
+}
+
 // ---- 着いたボタン ----
 document.getElementById("arriveBtn").addEventListener("click",()=>{
   const now=new Date();
   const rec={ id:newId(), day:todayStr(now), time:now.toISOString(),
-              place:"", memo:"", lat:null, lng:null, geoPending:true };
+              place:"", memo:"", lat:null, lng:null, geoPending:true, geoErr:null };
   records.push(rec);
   selectedDay=todayStr(now);
   saveAll(records); render();
   toast("記録しました");
-  // 現在地を取得
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(
-      pos=>{ rec.lat=+pos.coords.latitude.toFixed(6); rec.lng=+pos.coords.longitude.toFixed(6);
-             rec.geoPending=false; saveAll(records); render(); },
-      err=>{ rec.geoPending=false; saveAll(records); render(); },
-      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-    );
-  } else { rec.geoPending=false; saveAll(records); render(); }
+  captureGeo(rec);
 });
 
 document.getElementById("daySelect").addEventListener("change",e=>{ selectedDay=e.target.value; render(); });
