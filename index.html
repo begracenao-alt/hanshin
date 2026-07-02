@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>運行日報</title>
+<meta name="theme-color" content="#6b8f7a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="運行日報">
 <style>
   :root{
     --main:#6b8f7a;      /* やさしい緑 */
@@ -106,6 +111,32 @@
     font-size:14px; padding:6px 8px; border-radius:10px; border:1px solid var(--line);
     background:#fff; color:var(--text);
   }
+
+  /* 売上・粗利 */
+  .money{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px; margin:0 4px 16px; box-shadow:0 1px 4px rgba(0,0,0,.04);
+  }
+  .money h2{ font-size:15px; margin:0 0 10px; color:var(--main-d); }
+  .money .in-row{ display:flex; gap:10px; margin-bottom:12px; }
+  .money .fld{ flex:1; }
+  .money label{ font-size:12px; color:var(--sub); display:block; margin-bottom:3px; }
+  .money .money-input{ display:flex; align-items:center; gap:4px;
+     border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#fcfbf7; }
+  .money .money-input input{ width:100%; border:none; background:transparent; font-size:17px; text-align:right; color:var(--text); }
+  .money .money-input input:focus{ outline:none; }
+  .money .yen{ font-size:13px; color:var(--sub); }
+  .money .panel{ display:flex; gap:10px; }
+  .money .pbox{ flex:1; border-radius:12px; padding:10px 12px; background:#f2f6f2; }
+  .money .pbox .lbl{ font-size:12px; color:var(--sub); }
+  .money .pbox .sum{ font-size:17px; font-weight:bold; color:var(--text); margin:2px 0; }
+  .money .pbox .diff{ font-size:12.5px; font-weight:bold; line-height:1.4; }
+  .money .pbox .diff.plus{ color:#2e8b57; }
+  .money .pbox .diff.minus{ color:#c0603f; }
+  .money .pbox .diff.none{ color:var(--sub); font-weight:normal; }
+  .money details{ margin-top:12px; }
+  .money summary{ font-size:13px; color:var(--main-d); cursor:pointer; }
+  .money .goal-row{ display:flex; gap:10px; margin-top:8px; }
   .toast{
     position:fixed; bottom:88px; left:50%; transform:translateX(-50%);
     background:var(--main-d); color:#fff; padding:10px 18px; border-radius:30px;
@@ -117,7 +148,7 @@
   #printArea{ display:none; }
   @media print{
     header, .name-row, .big-btn, .hint, .day-pick, .section-title, #list,
-    .footer-actions, .toast{ display:none !important; }
+    .footer-actions, .toast, .money{ display:none !important; }
     body{ background:#fff; padding:0; }
     #printArea{ display:block !important; padding:24px 20px; color:#000; }
     #printArea .p-head{ font-size:20px; font-weight:bold; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px; }
@@ -128,6 +159,7 @@
     #printArea .p-memo{ font-size:14px; margin:3px 0 0 8px; }
     #printArea .p-geo{ font-size:11px; color:#555; margin-left:8px; word-break:break-all; }
     #printArea .p-empty{ color:#666; }
+    #printArea .p-money{ margin-top:16px; padding-top:10px; border-top:2px solid #000; font-size:14px; line-height:1.9; }
   }
 </style>
 </head>
@@ -151,6 +183,45 @@
 
   <div class="day-pick">
     <select id="daySelect"></select>
+  </div>
+
+  <div class="money">
+    <h2>💰 売上・粗利（<span id="moneyMonth"></span>）</h2>
+    <div class="in-row">
+      <div class="fld">
+        <label>本日の売上</label>
+        <div class="money-input"><input id="salesToday" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+      </div>
+      <div class="fld">
+        <label>本日の粗利</label>
+        <div class="money-input"><input id="profitToday" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="pbox">
+        <div class="lbl">今月の売上（合計）</div>
+        <div class="sum" id="salesSum">0円</div>
+        <div class="diff none" id="salesDiff">目標を入れると差が出ます</div>
+      </div>
+      <div class="pbox">
+        <div class="lbl">今月の粗利（合計）</div>
+        <div class="sum" id="profitSum">0円</div>
+        <div class="diff none" id="profitDiff">目標を入れると差が出ます</div>
+      </div>
+    </div>
+    <details>
+      <summary>今月の目標を入れる ▾</summary>
+      <div class="goal-row">
+        <div class="fld">
+          <label>売上目標（今月）</label>
+          <div class="money-input"><input id="salesGoal" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+        </div>
+        <div class="fld">
+          <label>粗利目標（今月）</label>
+          <div class="money-input"><input id="profitGoal" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="section-title">この日の記録　<span class="count" id="count"></span></div>
@@ -184,6 +255,86 @@ let records = loadAll();
 const nameInput = document.getElementById("driverName");
 nameInput.value = localStorage.getItem(NAMEKEY) || "";
 nameInput.addEventListener("input", ()=> localStorage.setItem(NAMEKEY, nameInput.value.trim()));
+
+// ---- 売上・粗利 ----
+const MONEYKEY = "unkou-nippou-money";
+function loadMoney(){ try{ return JSON.parse(localStorage.getItem(MONEYKEY)) || {daily:{},goals:{}}; }catch(e){ return {daily:{},goals:{}}; } }
+function saveMoney(){ localStorage.setItem(MONEYKEY, JSON.stringify(money)); }
+let money = loadMoney();
+if(!money.daily) money.daily={};
+if(!money.goals) money.goals={};
+
+function monthOf(d){ return d.slice(0,7); }
+function numFmt(n){ return (n||0).toLocaleString("ja-JP"); }
+function parseNum(v){ const n=parseInt(String(v).replace(/[^\d-]/g,""),10); return isNaN(n)?0:n; }
+
+const salesToday=document.getElementById("salesToday");
+const profitToday=document.getElementById("profitToday");
+const salesGoal=document.getElementById("salesGoal");
+const profitGoal=document.getElementById("profitGoal");
+
+function monthSum(mo){
+  let s=0,p=0;
+  Object.keys(money.daily).forEach(dt=>{
+    if(dt.slice(0,7)===mo){ s+=(money.daily[dt].sales||0); p+=(money.daily[dt].profit||0); }
+  });
+  return {s,p};
+}
+function renderMoneyInputs(){
+  document.getElementById("moneyMonth").textContent = (+monthOf(selectedDay).slice(5)) + "月";
+  const d = money.daily[selectedDay] || {};
+  salesToday.value  = d.sales!=null  ? d.sales  : "";
+  profitToday.value = d.profit!=null ? d.profit : "";
+  const g = money.goals[monthOf(selectedDay)] || {};
+  salesGoal.value  = g.sales!=null  ? g.sales  : "";
+  profitGoal.value = g.profit!=null ? g.profit : "";
+}
+function renderMoneyPanel(){
+  const mo=monthOf(selectedDay);
+  const {s,p}=monthSum(mo);
+  document.getElementById("salesSum").textContent  = numFmt(s)+"円";
+  document.getElementById("profitSum").textContent = numFmt(p)+"円";
+  const g=money.goals[mo]||{};
+  setDiff("salesDiff", s, g.sales);
+  setDiff("profitDiff", p, g.profit);
+}
+function setDiff(id,sum,goal){
+  const el=document.getElementById(id);
+  if(!goal){ el.className="diff none"; el.textContent="目標を入れると差が出ます"; return; }
+  const d=sum-goal;
+  if(d>=0){ el.className="diff plus";  el.textContent="目標を "+numFmt(d)+"円 こえてます✨"; }
+  else    { el.className="diff minus"; el.textContent="目標まで あと "+numFmt(-d)+"円"; }
+}
+function renderMoney(){ renderMoneyInputs(); renderMoneyPanel(); }
+
+salesToday.addEventListener("input",()=>setDailyNum("sales",salesToday.value));
+profitToday.addEventListener("input",()=>setDailyNum("profit",profitToday.value));
+function setDailyNum(key,val){
+  if(!money.daily[selectedDay]) money.daily[selectedDay]={};
+  money.daily[selectedDay][key]=parseNum(val);
+  saveMoney(); renderMoneyPanel();
+}
+salesGoal.addEventListener("input",()=>setGoal("sales",salesGoal.value));
+profitGoal.addEventListener("input",()=>setGoal("profit",profitGoal.value));
+function setGoal(key,val){
+  const mo=monthOf(selectedDay);
+  if(!money.goals[mo]) money.goals[mo]={};
+  money.goals[mo][key]=parseNum(val);
+  saveMoney(); renderMoneyPanel();
+}
+function diffText(sum,goal){ const d=sum-goal; return d>=0?`目標＋${numFmt(d)}円`:`目標まであと${numFmt(-d)}円`; }
+function moneySummaryText(){
+  const mo=monthOf(selectedDay);
+  const d=money.daily[selectedDay]||{};
+  const {s,p}=monthSum(mo);
+  const g=money.goals[mo]||{};
+  if(!(d.sales||d.profit||s||p||g.sales||g.profit)) return "";
+  let t="【売上・粗利】";
+  t+=`\n本日 売上 ${numFmt(d.sales||0)}円 ／ 粗利 ${numFmt(d.profit||0)}円`;
+  t+=`\n今月 売上 ${numFmt(s)}円`+(g.sales?`（${diffText(s,g.sales)}）`:"");
+  t+=`\n今月 粗利 ${numFmt(p)}円`+(g.profit?`（${diffText(p,g.profit)}）`:"");
+  return t;
+}
 
 // 日付まわり
 function todayStr(d){
@@ -227,6 +378,8 @@ function render(){
 
   const dayRecs = records.filter(r=>r.day===selectedDay);
   document.getElementById("count").textContent = dayRecs.length ? `（${dayRecs.length}件）` : "";
+
+  renderMoney();
 
   const list=document.getElementById("list");
   list.innerHTML="";
@@ -324,12 +477,14 @@ function buildText(){
   const name=nameInput.value.trim()||"（お名前未記入）";
   const recs=records.filter(r=>r.day===selectedDay);
   let t=`【運行日報】${jpDate(selectedDay)}　${name}\n`;
-  if(recs.length===0){ t+="（記録なし）"; return t; }
-  recs.forEach(r=>{
+  if(recs.length===0){ t+="（記録なし）"; }
+  else recs.forEach(r=>{
     t+=`\n${hhmm(r.time)}　${r.place||"（行き先未記入）"}`;
     if(r.memo) t+=`\n　└ ${r.memo}`;
     if(r.lat!=null) t+=`\n　└ 地図 https://www.google.com/maps?q=${r.lat},${r.lng}`;
   });
+  const mtxt=moneySummaryText();
+  if(mtxt) t+="\n\n"+mtxt;
   return t;
 }
 document.getElementById("copyBtn").addEventListener("click",async()=>{
@@ -367,9 +522,11 @@ document.getElementById("printBtn").addEventListener("click",()=>{
         ${r.memo?`<div class="p-memo">${escHtml(r.memo)}</div>`:""}
         ${r.lat!=null?`<div class="p-geo">地図 https://www.google.com/maps?q=${r.lat},${r.lng}</div>`:""}
       </div>`).join("");
+  const mtxt=moneySummaryText();
+  const moneyBlock = mtxt ? `<div class="p-money">${escHtml(mtxt).replace(/\n/g,"<br>")}</div>` : "";
   document.getElementById("printArea").innerHTML =
     `<div class="p-head">運行日報　<span class="p-sub">阪神食品株式会社</span><br>
-       <span class="p-sub">${jpDate(selectedDay)}　運転手：${escHtml(name)}　（${recs.length}件）</span></div>${body}`;
+       <span class="p-sub">${jpDate(selectedDay)}　運転手：${escHtml(name)}　（${recs.length}件）</span></div>${body}${moneyBlock}`;
   window.print();
 });
 
@@ -380,6 +537,11 @@ function toast(msg){
   el.textContent=msg; el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>el.classList.remove("show"),1600);
+}
+
+// ---- アプリ化（ホーム画面・圏外OK）----
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
 }
 
 render();
