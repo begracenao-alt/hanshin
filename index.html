@@ -194,7 +194,7 @@
 <div class="wrap">
 
   <div class="name-row">
-    <label>運転手のお名前</label>
+    <label>お名前</label>
     <select id="driverSelect"></select>
   </div>
   <input type="text" id="driverManual" class="name-manual" placeholder="お名前を入力（イレギュラーの方）" style="display:none" />
@@ -610,7 +610,7 @@ document.getElementById("printBtn").addEventListener("click",()=>{
   const moneyBlock = mtxt ? `<div class="p-money">${escHtml(mtxt).replace(/\n/g,"<br>")}</div>` : "";
   document.getElementById("printArea").innerHTML =
     `<div class="p-head">運行日報　<span class="p-sub">阪神食品株式会社</span><br>
-       <span class="p-sub">${jpDate(selectedDay)}　運転手：${escHtml(name)}　（${recs.length}件）</span></div>${body}${moneyBlock}`;
+       <span class="p-sub">${jpDate(selectedDay)}　お名前：${escHtml(name)}　（${recs.length}件）</span></div>${body}${moneyBlock}`;
   window.print();
 });
 
