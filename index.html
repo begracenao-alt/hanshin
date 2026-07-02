@@ -46,6 +46,26 @@
     padding:6px 2px; background:transparent; color:var(--text);
   }
   .name-row input:focus{ outline:none; border-bottom-color:var(--main); }
+  .name-row select{ flex:1; border:none; border-bottom:2px solid var(--line); font-size:17px;
+    padding:6px 2px; background:transparent; color:var(--text); }
+  .name-row select:focus{ outline:none; border-bottom-color:var(--main); }
+  .name-manual{ width:100%; border:1px solid var(--line); border-radius:12px; font-size:16px;
+    padding:10px 12px; margin:-6px 0 12px; background:#fcfbf7; color:var(--text); }
+  .name-manual:focus{ outline:none; border-color:var(--main); }
+  .name-tools{ margin:-4px 4px 16px; text-align:right; }
+  .link-btn{ background:none; border:none; color:var(--main-d); font-size:13px; cursor:pointer; text-decoration:underline; }
+  .names-editor{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex;
+    align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .ne-card{ background:#fff; border-radius:18px; padding:20px; width:100%; max-width:420px; }
+  .ne-title{ font-size:17px; font-weight:bold; color:var(--main-d); margin-bottom:8px; }
+  .ne-hint{ font-size:13px; color:var(--sub); margin:0 0 10px; line-height:1.6; }
+  .ne-card textarea{ width:100%; min-height:160px; border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; font-size:15px; font-family:inherit; line-height:1.9; background:#fcfbf7; color:var(--text); }
+  .ne-card textarea:focus{ outline:none; border-color:var(--main); }
+  .ne-actions{ display:flex; gap:10px; margin-top:12px; }
+  .ne-btn{ flex:1; border:1px solid var(--line); background:#fff; color:var(--sub);
+    border-radius:12px; padding:12px; font-size:15px; font-weight:bold; cursor:pointer; }
+  .ne-btn.primary{ background:var(--main); color:#fff; border-color:var(--main); }
 
   .big-btn{
     width:100%; background:var(--main); color:#fff; border:none; border-radius:18px;
@@ -147,8 +167,8 @@
   /* 印刷用 */
   #printArea{ display:none; }
   @media print{
-    header, .name-row, .big-btn, .hint, .day-pick, .section-title, #list,
-    .footer-actions, .toast, .money{ display:none !important; }
+    header, .name-row, .name-manual, .name-tools, .names-editor, .big-btn, .hint,
+    .day-pick, .section-title, #list, .footer-actions, .toast, .money{ display:none !important; }
     body{ background:#fff; padding:0; }
     #printArea{ display:block !important; padding:24px 20px; color:#000; }
     #printArea .p-head{ font-size:20px; font-weight:bold; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px; }
@@ -175,7 +195,11 @@
 
   <div class="name-row">
     <label>運転手のお名前</label>
-    <input type="text" id="driverName" placeholder="ここにお名前" />
+    <select id="driverSelect"></select>
+  </div>
+  <input type="text" id="driverManual" class="name-manual" placeholder="お名前を入力（イレギュラーの方）" style="display:none" />
+  <div class="name-tools">
+    <button id="editNamesBtn" class="link-btn">📋 名簿を編集（エクセルから貼り付け）</button>
   </div>
 
   <button class="big-btn" id="arriveBtn">＋　配達先に着いた</button>
@@ -235,6 +259,18 @@
   <button class="foot-btn" id="printBtn">印刷</button>
 </div>
 
+<div id="namesEditor" class="names-editor" style="display:none">
+  <div class="ne-card">
+    <div class="ne-title">名簿の編集</div>
+    <p class="ne-hint">エクセルの名前をコピーして、下に貼り付けてください。<br>（1行に1人ずつ。たくさん貼ってもOKです）</p>
+    <textarea id="namesText" placeholder="山田太郎&#10;鈴木花子&#10;佐藤次郎"></textarea>
+    <div class="ne-actions">
+      <button id="namesCancel" class="ne-btn">やめる</button>
+      <button id="namesSave" class="ne-btn primary">保存</button>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <div class="toast" id="toast"></div>
@@ -251,10 +287,58 @@ function saveAll(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
 
 let records = loadAll();
 
-// お名前
-const nameInput = document.getElementById("driverName");
-nameInput.value = localStorage.getItem(NAMEKEY) || "";
-nameInput.addEventListener("input", ()=> localStorage.setItem(NAMEKEY, nameInput.value.trim()));
+// ---- お名前（名簿から選ぶ／イレギュラーは手入力／名簿はエクセルから貼り付け）----
+const NAMESKEY = "unkou-nippou-names";
+function loadNames(){ try{ return JSON.parse(localStorage.getItem(NAMESKEY))||[]; }catch(e){ return []; } }
+function saveNames(){ localStorage.setItem(NAMESKEY, JSON.stringify(nameList)); }
+let nameList = loadNames();
+
+const driverSelect = document.getElementById("driverSelect");
+const driverManual = document.getElementById("driverManual");
+
+function currentName(){
+  if(driverSelect.value==="__manual__") return driverManual.value.trim();
+  return driverSelect.value.trim();
+}
+function setStoredName(n){ localStorage.setItem(NAMEKEY, n||""); }
+
+function renderNameSelect(){
+  const stored = localStorage.getItem(NAMEKEY) || "";
+  driverSelect.innerHTML="";
+  const o0=document.createElement("option"); o0.value=""; o0.textContent="― 選んでください ―"; driverSelect.appendChild(o0);
+  nameList.forEach(nm=>{ const o=document.createElement("option"); o.value=nm; o.textContent=nm; driverSelect.appendChild(o); });
+  const om=document.createElement("option"); om.value="__manual__"; om.textContent="✏️ その他（手入力）"; driverSelect.appendChild(om);
+  if(stored && nameList.includes(stored)){
+    driverSelect.value=stored; driverManual.style.display="none";
+  } else if(stored){
+    driverSelect.value="__manual__"; driverManual.style.display="block"; driverManual.value=stored;
+  } else {
+    driverSelect.value=""; driverManual.style.display="none";
+  }
+}
+driverSelect.addEventListener("change",()=>{
+  if(driverSelect.value==="__manual__"){
+    driverManual.style.display="block"; driverManual.focus(); setStoredName(driverManual.value.trim());
+  } else {
+    driverManual.style.display="none"; setStoredName(driverSelect.value.trim());
+  }
+});
+driverManual.addEventListener("input",()=> setStoredName(driverManual.value.trim()));
+
+// 名簿の編集
+const namesEditor=document.getElementById("namesEditor");
+const namesText=document.getElementById("namesText");
+document.getElementById("editNamesBtn").addEventListener("click",()=>{
+  namesText.value=nameList.join("\n"); namesEditor.style.display="flex";
+});
+document.getElementById("namesCancel").addEventListener("click",()=>{ namesEditor.style.display="none"; });
+document.getElementById("namesSave").addEventListener("click",()=>{
+  const list=namesText.value.split(/[\n,、\t]+/).map(s=>s.trim()).filter(Boolean);
+  const seen=new Set(); nameList=list.filter(n=>{ if(seen.has(n))return false; seen.add(n); return true; });
+  saveNames(); renderNameSelect(); namesEditor.style.display="none";
+  toast("名簿を保存しました");
+});
+renderNameSelect();
 
 // ---- 売上・粗利 ----
 const MONEYKEY = "unkou-nippou-money";
@@ -474,7 +558,7 @@ document.getElementById("daySelect").addEventListener("change",e=>{ selectedDay=
 
 // ---- 日報コピー ----
 function buildText(){
-  const name=nameInput.value.trim()||"（お名前未記入）";
+  const name=currentName()||"（お名前未記入）";
   const recs=records.filter(r=>r.day===selectedDay);
   let t=`【運行日報】${jpDate(selectedDay)}　${name}\n`;
   if(recs.length===0){ t+="（記録なし）"; }
@@ -495,7 +579,7 @@ document.getElementById("copyBtn").addEventListener("click",async()=>{
 
 // ---- CSV保存 ----
 document.getElementById("csvBtn").addEventListener("click",()=>{
-  const name=nameInput.value.trim()||"";
+  const name=currentName()||"";
   const recs=records.filter(r=>r.day===selectedDay);
   let rows=[["日付","時刻","運転手","行き先","メモ","緯度","経度","地図リンク"]];
   recs.forEach(r=>{
@@ -513,7 +597,7 @@ document.getElementById("csvBtn").addEventListener("click",()=>{
 
 // ---- 印刷 ----
 document.getElementById("printBtn").addEventListener("click",()=>{
-  const name=nameInput.value.trim()||"（お名前未記入）";
+  const name=currentName()||"（お名前未記入）";
   const recs=records.filter(r=>r.day===selectedDay);
   let body = recs.length===0 ? `<div class="p-empty">この日の記録はありません。</div>` :
     recs.map(r=>`
