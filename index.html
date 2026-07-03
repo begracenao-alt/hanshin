@@ -137,7 +137,9 @@
     background:var(--card); border:1px solid var(--line); border-radius:16px;
     padding:14px; margin:0 4px 16px; box-shadow:0 1px 4px rgba(0,0,0,.04);
   }
-  .money h2{ font-size:15px; margin:0 0 10px; color:var(--main-d); }
+  .money h2{ font-size:15px; margin:0 0 4px; color:var(--main-d); }
+  .money .worked-info{ font-size:12px; color:var(--sub); margin:0 0 10px; }
+  .money .goal-note{ font-size:11.5px; color:var(--sub); margin-top:8px; line-height:1.5; }
   .money .in-row{ display:flex; gap:10px; margin-bottom:12px; }
   .money .fld{ flex:1; }
   .money label{ font-size:12px; color:var(--sub); display:block; margin-bottom:3px; }
@@ -211,6 +213,7 @@
 
   <div class="money">
     <h2>💰 売上・粗利（<span id="moneyMonth"></span>）</h2>
+    <div class="worked-info" id="workedInfo"></div>
     <div class="in-row">
       <div class="fld">
         <label>本日の売上</label>
@@ -223,18 +226,18 @@
     </div>
     <div class="panel">
       <div class="pbox">
-        <div class="lbl">今月の売上（合計）</div>
+        <div class="lbl">今月の売上（累計）</div>
         <div class="sum" id="salesSum">0円</div>
         <div class="diff none" id="salesDiff">目標を入れると差が出ます</div>
       </div>
       <div class="pbox">
-        <div class="lbl">今月の粗利（合計）</div>
+        <div class="lbl">今月の粗利（累計）</div>
         <div class="sum" id="profitSum">0円</div>
         <div class="diff none" id="profitDiff">目標を入れると差が出ます</div>
       </div>
     </div>
     <details>
-      <summary>今月の目標を入れる ▾</summary>
+      <summary>今月の目標・実働日数を入れる ▾</summary>
       <div class="goal-row">
         <div class="fld">
           <label>売上目標（今月）</label>
@@ -245,6 +248,13 @@
           <div class="money-input"><input id="profitGoal" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
         </div>
       </div>
+      <div class="goal-row" style="margin-top:8px">
+        <div class="fld">
+          <label>今月の実働日数（何日はたらく月？）</label>
+          <div class="money-input"><input id="workdaysGoal" type="number" inputmode="numeric" placeholder="例：22"><span class="yen">日</span></div>
+        </div>
+      </div>
+      <div class="goal-note">※「実働日数」を入れると、今の“ペース”で目標より上か下かが出ます😊</div>
     </details>
   </div>
 
@@ -356,6 +366,7 @@ const salesToday=document.getElementById("salesToday");
 const profitToday=document.getElementById("profitToday");
 const salesGoal=document.getElementById("salesGoal");
 const profitGoal=document.getElementById("profitGoal");
+const workdaysGoal=document.getElementById("workdaysGoal");
 
 function monthSum(mo){
   let s=0,p=0;
@@ -364,14 +375,23 @@ function monthSum(mo){
   });
   return {s,p};
 }
+// この月に、売上か粗利を入れた日数（＝働いた日数のめやす）
+function countWorkedDays(mo){
+  let n=0;
+  Object.keys(money.daily).forEach(dt=>{
+    if(dt.slice(0,7)===mo){ const d=money.daily[dt]; if((d.sales||0)>0 || (d.profit||0)>0) n++; }
+  });
+  return n;
+}
 function renderMoneyInputs(){
   document.getElementById("moneyMonth").textContent = (+monthOf(selectedDay).slice(5)) + "月";
   const d = money.daily[selectedDay] || {};
   salesToday.value  = d.sales!=null  ? d.sales  : "";
   profitToday.value = d.profit!=null ? d.profit : "";
   const g = money.goals[monthOf(selectedDay)] || {};
-  salesGoal.value  = g.sales!=null  ? g.sales  : "";
-  profitGoal.value = g.profit!=null ? g.profit : "";
+  salesGoal.value    = g.sales!=null    ? g.sales    : "";
+  profitGoal.value   = g.profit!=null   ? g.profit   : "";
+  workdaysGoal.value = g.workdays!=null  ? g.workdays : "";
 }
 function renderMoneyPanel(){
   const mo=monthOf(selectedDay);
@@ -379,15 +399,29 @@ function renderMoneyPanel(){
   document.getElementById("salesSum").textContent  = numFmt(s)+"円";
   document.getElementById("profitSum").textContent = numFmt(p)+"円";
   const g=money.goals[mo]||{};
-  setDiff("salesDiff", s, g.sales);
-  setDiff("profitDiff", p, g.profit);
+  const worked=countWorkedDays(mo);
+  const total=g.workdays||0;
+  const wi=document.getElementById("workedInfo");
+  if(total)      wi.textContent=`働いた日数：${worked}日 ／ 今月の実働 ${total}日`;
+  else if(worked)wi.textContent=`働いた日数：${worked}日（実働日数を入れると「今のペース」が出ます）`;
+  else           wi.textContent="";
+  setDiff("salesDiff",  s, g.sales,  total, worked);
+  setDiff("profitDiff", p, g.profit, total, worked);
 }
-function setDiff(id,sum,goal){
+function setDiff(id,sum,goal,totalDays,workedDays){
   const el=document.getElementById(id);
   if(!goal){ el.className="diff none"; el.textContent="目標を入れると差が出ます"; return; }
-  const d=sum-goal;
-  if(d>=0){ el.className="diff plus";  el.textContent="目標を "+numFmt(d)+"円 こえてます✨"; }
-  else    { el.className="diff minus"; el.textContent="目標まで あと "+numFmt(-d)+"円"; }
+  if(totalDays && workedDays){
+    // 今の“ペース”で、あるべき所（＝1日あたり目標×働いた日数）と比べる
+    const target=Math.round(goal/totalDays*workedDays);
+    const d=sum-target;
+    if(d>=0){ el.className="diff plus";  el.textContent="今のペース：目標より ＋"+numFmt(d)+"円 ✨"; }
+    else    { el.className="diff minus"; el.textContent="今のペース：目標より −"+numFmt(-d)+"円"; }
+  } else {
+    const d=sum-goal;
+    if(d>=0){ el.className="diff plus";  el.textContent="今月の目標を ＋"+numFmt(d)+"円 達成✨"; }
+    else    { el.className="diff minus"; el.textContent="今月の目標まで あと "+numFmt(-d)+"円"; }
+  }
 }
 function renderMoney(){ renderMoneyInputs(); renderMoneyPanel(); }
 
@@ -400,23 +434,35 @@ function setDailyNum(key,val){
 }
 salesGoal.addEventListener("input",()=>setGoal("sales",salesGoal.value));
 profitGoal.addEventListener("input",()=>setGoal("profit",profitGoal.value));
+workdaysGoal.addEventListener("input",()=>setGoal("workdays",workdaysGoal.value));
 function setGoal(key,val){
   const mo=monthOf(selectedDay);
   if(!money.goals[mo]) money.goals[mo]={};
   money.goals[mo][key]=parseNum(val);
   saveMoney(); renderMoneyPanel();
 }
-function diffText(sum,goal){ const d=sum-goal; return d>=0?`目標＋${numFmt(d)}円`:`目標まであと${numFmt(-d)}円`; }
+function paceLine(label,sum,goal,totalDays,workedDays){
+  if(!goal) return `${label}：目標 未設定`;
+  if(totalDays && workedDays){
+    const target=Math.round(goal/totalDays*workedDays); const d=sum-target;
+    return d>=0?`${label}：今のペース 目標＋${numFmt(d)}円`:`${label}：今のペース 目標−${numFmt(-d)}円`;
+  }
+  const d=sum-goal;
+  return d>=0?`${label}：目標＋${numFmt(d)}円`:`${label}：目標まであと${numFmt(-d)}円`;
+}
 function moneySummaryText(){
   const mo=monthOf(selectedDay);
   const d=money.daily[selectedDay]||{};
   const {s,p}=monthSum(mo);
   const g=money.goals[mo]||{};
+  const worked=countWorkedDays(mo), total=g.workdays||0;
   if(!(d.sales||d.profit||s||p||g.sales||g.profit)) return "";
   let t="【売上・粗利】";
   t+=`\n本日 売上 ${numFmt(d.sales||0)}円 ／ 粗利 ${numFmt(d.profit||0)}円`;
-  t+=`\n今月 売上 ${numFmt(s)}円`+(g.sales?`（${diffText(s,g.sales)}）`:"");
-  t+=`\n今月 粗利 ${numFmt(p)}円`+(g.profit?`（${diffText(p,g.profit)}）`:"");
+  t+=`\n今月累計 売上 ${numFmt(s)}円 ／ 粗利 ${numFmt(p)}円`;
+  if(total) t+=`\n実働 ${worked}／${total}日`;
+  t+=`\n${paceLine("売上",s,g.sales,total,worked)}`;
+  t+=`\n${paceLine("粗利",p,g.profit,total,worked)}`;
   return t;
 }
 
