@@ -217,11 +217,11 @@
     <div class="in-row">
       <div class="fld">
         <label>本日の売上</label>
-        <div class="money-input"><input id="salesToday" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+        <div class="money-input"><input id="salesToday" type="text" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
       </div>
       <div class="fld">
         <label>本日の粗利</label>
-        <div class="money-input"><input id="profitToday" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+        <div class="money-input"><input id="profitToday" type="text" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
       </div>
     </div>
     <div class="panel">
@@ -241,17 +241,17 @@
       <div class="goal-row">
         <div class="fld">
           <label>売上目標（今月）</label>
-          <div class="money-input"><input id="salesGoal" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+          <div class="money-input"><input id="salesGoal" type="text" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
         </div>
         <div class="fld">
           <label>粗利目標（今月）</label>
-          <div class="money-input"><input id="profitGoal" type="number" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
+          <div class="money-input"><input id="profitGoal" type="text" inputmode="numeric" placeholder="0"><span class="yen">円</span></div>
         </div>
       </div>
       <div class="goal-row" style="margin-top:8px">
         <div class="fld">
           <label>今月の実働日数（何日はたらく月？）</label>
-          <div class="money-input"><input id="workdaysGoal" type="number" inputmode="numeric" placeholder="例：22"><span class="yen">日</span></div>
+          <div class="money-input"><input id="workdaysGoal" type="text" inputmode="numeric" placeholder="例：22"><span class="yen">日</span></div>
         </div>
       </div>
       <div class="goal-note">※「実働日数」を入れると、今の“ペース”で目標より上か下かが出ます😊</div>
@@ -386,11 +386,11 @@ function countWorkedDays(mo){
 function renderMoneyInputs(){
   document.getElementById("moneyMonth").textContent = (+monthOf(selectedDay).slice(5)) + "月";
   const d = money.daily[selectedDay] || {};
-  salesToday.value  = d.sales!=null  ? d.sales  : "";
-  profitToday.value = d.profit!=null ? d.profit : "";
+  salesToday.value  = d.sales!=null  ? numFmt(d.sales)  : "";
+  profitToday.value = d.profit!=null ? numFmt(d.profit) : "";
   const g = money.goals[monthOf(selectedDay)] || {};
-  salesGoal.value    = g.sales!=null    ? g.sales    : "";
-  profitGoal.value   = g.profit!=null   ? g.profit   : "";
+  salesGoal.value    = g.sales!=null    ? numFmt(g.sales)    : "";
+  profitGoal.value   = g.profit!=null   ? numFmt(g.profit)   : "";
   workdaysGoal.value = g.workdays!=null  ? g.workdays : "";
 }
 function renderMoneyPanel(){
@@ -425,15 +425,24 @@ function setDiff(id,sum,goal,totalDays,workedDays){
 }
 function renderMoney(){ renderMoneyInputs(); renderMoneyPanel(); }
 
+// 入力しながら 1,000 のようにコンマを入れる
+function commafy(el){
+  const digits=el.value.replace(/[^\d]/g,"");
+  el.value = digits ? (+digits).toLocaleString("ja-JP") : "";
+}
 salesToday.addEventListener("input",()=>setDailyNum("sales",salesToday.value));
+salesToday.addEventListener("blur",()=>commafy(salesToday));
 profitToday.addEventListener("input",()=>setDailyNum("profit",profitToday.value));
+profitToday.addEventListener("blur",()=>commafy(profitToday));
 function setDailyNum(key,val){
   if(!money.daily[selectedDay]) money.daily[selectedDay]={};
   money.daily[selectedDay][key]=parseNum(val);
   saveMoney(); renderMoneyPanel();
 }
 salesGoal.addEventListener("input",()=>setGoal("sales",salesGoal.value));
+salesGoal.addEventListener("blur",()=>commafy(salesGoal));
 profitGoal.addEventListener("input",()=>setGoal("profit",profitGoal.value));
+profitGoal.addEventListener("blur",()=>commafy(profitGoal));
 workdaysGoal.addEventListener("input",()=>setGoal("workdays",workdaysGoal.value));
 function setGoal(key,val){
   const mo=monthOf(selectedDay);
