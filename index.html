@@ -168,8 +168,12 @@
 
   /* 印刷用（A4 1枚に収まるコンパクトな表形式） */
   #printArea{ display:none; }
+  .past-pick{ font-size:13px; color:#555; display:inline-flex; align-items:center; gap:5px; margin-left:8px; }
+  .past-pick input[type=date]{ font-size:13px; padding:5px 7px; border:1px solid #ccc; border-radius:8px; }
+  .time-edit{ font-weight:bold; font-size:16px; border:1px solid #e0e0e0; border-radius:7px; padding:3px 7px; color:#333; background:#fafafa; font-family:inherit; }
   @media print{
-    @page{ margin: 10mm; }
+    @page{ size: A4; margin: 10mm; }
+    html, body{ width: auto; }
     header, .name-row, .name-manual, .name-tools, .names-editor, .big-btn, .hint,
     .day-pick, .section-title, #list, .footer-actions, .toast, .money{ display:none !important; }
     body{ background:#fff; padding:0; font-size:11px; }
@@ -212,6 +216,7 @@
 
   <div class="day-pick">
     <select id="daySelect"></select>
+    <label class="past-pick">📅 前の日を記録<input type="date" id="pastDate"></label>
   </div>
 
   <div class="money">
@@ -505,9 +510,9 @@ function newId(){ return "r"+Math.floor(performance.now()*1000)+"-"+records.leng
 function render(){
   // 日付リスト
   const days=[...new Set(records.map(r=>r.day))];
-  if(!days.includes(todayStr())) days.unshift(todayStr());
+  if(!days.includes(todayStr())) days.push(todayStr());
+  if(!days.includes(selectedDay)) days.push(selectedDay);
   days.sort().reverse();
-  if(!days.includes(selectedDay)) selectedDay=days[0];
   const sel=document.getElementById("daySelect");
   sel.innerHTML="";
   days.forEach(dy=>{
@@ -543,7 +548,7 @@ function render(){
     }
     card.innerHTML=`
       <div class="top">
-        <div class="time">${hhmm(r.time)}</div>
+        <input class="time-edit" type="time" value="${hhmm(r.time)}" title="時刻をなおせます">
         <div class="geo">${geoHtml}</div>
       </div>
       <input class="place" placeholder="行き先の名前（例：〇〇様、△△商店）" value="${escAttr(r.place||"")}">
@@ -558,8 +563,10 @@ function render(){
     `;
     const placeEl=card.querySelector(".place");
     const memoEl=card.querySelector(".memo");
+    const timeEl=card.querySelector(".time-edit");
     placeEl.addEventListener("input",()=>{ r.place=placeEl.value; saveAll(records); });
     memoEl.addEventListener("input",()=>{ r.memo=memoEl.value; saveAll(records); });
+    timeEl.addEventListener("change",()=>{ if(timeEl.value){ r.time=new Date(r.day+"T"+timeEl.value+":00").toISOString(); saveAll(records); } });
     card.querySelectorAll(".tag").forEach(t=>{
       t.addEventListener("click",()=>{
         memoEl.value = memoEl.value ? memoEl.value.replace(/\s*$/,"") + "／" + t.textContent : t.textContent;
@@ -603,16 +610,20 @@ function captureGeo(rec){
 // ---- 着いたボタン ----
 document.getElementById("arriveBtn").addEventListener("click",()=>{
   const now=new Date();
-  const rec={ id:newId(), day:todayStr(now), time:now.toISOString(),
-              place:"", memo:"", lat:null, lng:null, geoPending:true, geoErr:null };
+  const isToday = selectedDay===todayStr(now);
+  const hhmmNow = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  // きょう＝今の時刻＋GPS／過去の日＝その日付＋現在時刻（時刻はあとで直せる・GPSなし）
+  const t = isToday ? now.toISOString() : new Date(selectedDay+"T"+hhmmNow+":00").toISOString();
+  const rec={ id:newId(), day:selectedDay, time:t,
+              place:"", memo:"", lat:null, lng:null, geoPending:isToday, geoErr:null };
   records.push(rec);
-  selectedDay=todayStr(now);
   saveAll(records); render();
-  toast("記録しました");
-  captureGeo(rec);
+  if(isToday){ toast("記録しました"); captureGeo(rec); }
+  else { toast("過去の記録を追加しました（時刻を直せます）"); }
 });
 
 document.getElementById("daySelect").addEventListener("change",e=>{ selectedDay=e.target.value; render(); });
+document.getElementById("pastDate").addEventListener("change",e=>{ if(e.target.value){ selectedDay=e.target.value; render(); e.target.value=""; } });
 
 // ---- 日報コピー ----
 function buildText(){
