@@ -196,6 +196,9 @@
     #printArea tr{ page-break-inside:avoid; }
     #printArea .p-empty{ color:#666; padding:10px; }
     #printArea .p-money{ margin-top:10px; padding-top:6px; border-top:1.5px solid #000; font-size:11px; line-height:1.6; }
+    #printArea .p-comment{ margin-top:14px; padding-top:8px; border-top:1.5px solid #000; }
+    #printArea .p-comment-title{ font-size:11px; font-weight:bold; margin-bottom:6px; }
+    #printArea .p-comment-box{ border:1px solid #000; border-radius:2px; height:70px; }
   }
 </style>
 </head>
@@ -508,6 +511,11 @@ function jpDate(str){
   return `${+m}月${+d}日（${week[dt.getDay()]}）`;
 }
 let selectedDay = todayStr();
+
+// アプリ版からSafariへ渡された「この日を印刷して」の指定があれば読み取る
+const _printParams = new URLSearchParams(location.search);
+if(_printParams.get("printDay")) selectedDay = _printParams.get("printDay");
+
 document.getElementById("headerDate").textContent = jpDate(selectedDay) + " の記録";
 
 // 時刻表示
@@ -679,7 +687,7 @@ document.getElementById("csvBtn").addEventListener("click",()=>{
 });
 
 // ---- 印刷 ----
-document.getElementById("printBtn").addEventListener("click",()=>{
+function buildPrintArea(){
   const name=currentName()||"（お名前未記入）";
   const recs=records.filter(r=>r.day===selectedDay);
   const rows = recs.length===0 ? `<tr><td colspan="4" class="p-empty">この日の記録はありません。</td></tr>` :
@@ -694,9 +702,28 @@ document.getElementById("printBtn").addEventListener("click",()=>{
     +`</tr></thead><tbody>${rows}</tbody></table>`;
   const mtxt=moneySummaryText();
   const moneyBlock = mtxt ? `<div class="p-money">${escHtml(mtxt).replace(/\n/g,"<br>")}</div>` : "";
+  const commentBlock = `<div class="p-comment"><div class="p-comment-title">社長コメント</div><div class="p-comment-box"></div></div>`;
   document.getElementById("printArea").innerHTML =
     `<div class="p-head">運行日報　<span class="p-sub">阪神食品株式会社</span><br>
-       <span class="p-sub">${jpDate(selectedDay)}　お名前：${escHtml(name)}　（${recs.length}件）</span></div>${table}${moneyBlock}`;
+       <span class="p-sub">${jpDate(selectedDay)}　お名前：${escHtml(name)}　（${recs.length}件）</span></div>${table}${moneyBlock}${commentBlock}`;
+}
+// ホーム画面に追加した「アプリ」として開いているかどうか（この状態だと印刷が小さく崩れることがあるため）
+function isStandaloneApp(){
+  return (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;
+}
+document.getElementById("printBtn").addEventListener("click",()=>{
+  if(isStandaloneApp()){
+    // アプリのままだと印刷が崩れるので、同じ内容をSafariで開き直す
+    const url=new URL(location.href);
+    url.searchParams.set("printDay", selectedDay);
+    url.searchParams.set("autoprint", "1");
+    const a=document.createElement("a");
+    a.href=url.toString(); a.target="_blank"; a.rel="noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("Safariの画面が開きます。そちらで印刷してください");
+    return;
+  }
+  buildPrintArea();
   window.print();
 });
 
@@ -715,6 +742,15 @@ if("serviceWorker" in navigator){
 }
 
 render();
+
+// Safariに渡ってきた「この日を自動で印刷」の指定があれば、少し待ってから印刷を開く
+if(_printParams.get("autoprint")==="1"){
+  setTimeout(()=>{
+    buildPrintArea();
+    window.print();
+    history.replaceState(null, "", location.pathname);
+  }, 400);
+}
 </script>
 </body>
 </html>
