@@ -196,9 +196,9 @@
     #printArea tr{ page-break-inside:avoid; }
     #printArea .p-empty{ color:#666; padding:10px; }
     #printArea .p-money{ margin-top:10px; padding-top:6px; border-top:1.5px solid #000; font-size:11px; line-height:1.6; }
-    #printArea .p-comment{ margin-top:14px; padding-top:8px; border-top:1.5px solid #000; }
+    #printArea .p-comment{ margin-top:12px; padding-top:8px; border-top:1.5px solid #000; }
     #printArea .p-comment-title{ font-size:11px; font-weight:bold; margin-bottom:6px; }
-    #printArea .p-comment-box{ border:1px solid #000; border-radius:2px; height:70px; }
+    #printArea .p-comment-box{ border:1px solid #000; border-radius:2px; height:64px; }
   }
 </style>
 </head>
@@ -702,7 +702,9 @@ function buildPrintArea(){
     +`</tr></thead><tbody>${rows}</tbody></table>`;
   const mtxt=moneySummaryText();
   const moneyBlock = mtxt ? `<div class="p-money">${escHtml(mtxt).replace(/\n/g,"<br>")}</div>` : "";
-  const commentBlock = `<div class="p-comment"><div class="p-comment-title">社長コメント</div><div class="p-comment-box"></div></div>`;
+  // 日報が回る順（課長 → 社長）に、上から手書きのコメント欄を並べる
+  const commentBlock = ["課長コメント","社長コメント"].map(t=>
+    `<div class="p-comment"><div class="p-comment-title">${t}</div><div class="p-comment-box"></div></div>`).join("");
   document.getElementById("printArea").innerHTML =
     `<div class="p-head">運行日報　<span class="p-sub">阪神食品株式会社</span><br>
        <span class="p-sub">${jpDate(selectedDay)}　お名前：${escHtml(name)}　（${recs.length}件）</span></div>${table}${moneyBlock}${commentBlock}`;
