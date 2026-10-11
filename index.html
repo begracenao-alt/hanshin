@@ -175,6 +175,20 @@
 
   /* 印刷用（A4 1枚に収まるコンパクトな表形式） */
   #printArea{ display:none; }
+  #printArea .p-head{ font-size:15px; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:5px; margin-bottom:8px; }
+  #printArea .p-sub{ font-size:11px; font-weight:normal; }
+  #printArea table{ width:100%; border-collapse:collapse; }
+  #printArea thead{ display:table-header-group; }
+  #printArea th{ font-size:10px; text-align:left; border-bottom:1px solid #000; padding:3px 5px; background:#eee; }
+  #printArea td{ font-size:11px; border-bottom:0.5px solid #ccc; padding:3px 5px; vertical-align:top; }
+  #printArea td.t{ font-weight:bold; white-space:nowrap; }
+  #printArea td.g{ text-align:center; }
+  #printArea tr{ page-break-inside:avoid; }
+  #printArea .p-empty{ color:#666; padding:10px; }
+  #printArea .p-money{ margin-top:10px; padding-top:6px; border-top:1.5px solid #000; font-size:11px; line-height:1.6; }
+  #printArea .p-comment{ margin-top:12px; padding-top:8px; border-top:1.5px solid #000; }
+  #printArea .p-comment-title{ font-size:11px; font-weight:bold; margin-bottom:6px; }
+  #printArea .p-comment-box{ border:1px solid #000; border-radius:2px; height:64px; }
   .past-pick{ font-size:13px; color:#555; display:inline-flex; align-items:center; gap:5px; margin-left:8px; }
   .past-pick input[type=date]{ font-size:13px; padding:5px 7px; border:1px solid #ccc; border-radius:8px; }
   .time-edit{ font-weight:bold; font-size:16px; border:1px solid #e0e0e0; border-radius:7px; padding:3px 7px; color:#333; background:#fafafa; font-family:inherit; }
@@ -185,20 +199,6 @@
     .day-pick, .day-nav, .day-sub, .section-title, #list, .footer-actions, .toast, .money{ display:none !important; }
     body{ background:#fff; padding:0; font-size:11px; }
     #printArea{ display:block !important; padding:0; color:#000; }
-    #printArea .p-head{ font-size:15px; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:5px; margin-bottom:8px; }
-    #printArea .p-sub{ font-size:11px; font-weight:normal; }
-    #printArea table{ width:100%; border-collapse:collapse; }
-    #printArea thead{ display:table-header-group; }
-    #printArea th{ font-size:10px; text-align:left; border-bottom:1px solid #000; padding:3px 5px; background:#eee; }
-    #printArea td{ font-size:11px; border-bottom:0.5px solid #ccc; padding:3px 5px; vertical-align:top; }
-    #printArea td.t{ font-weight:bold; white-space:nowrap; }
-    #printArea td.g{ text-align:center; }
-    #printArea tr{ page-break-inside:avoid; }
-    #printArea .p-empty{ color:#666; padding:10px; }
-    #printArea .p-money{ margin-top:10px; padding-top:6px; border-top:1.5px solid #000; font-size:11px; line-height:1.6; }
-    #printArea .p-comment{ margin-top:12px; padding-top:8px; border-top:1.5px solid #000; }
-    #printArea .p-comment-title{ font-size:11px; font-weight:bold; margin-bottom:6px; }
-    #printArea .p-comment-box{ border:1px solid #000; border-radius:2px; height:64px; }
   }
 </style>
 </head>
@@ -708,7 +708,25 @@ function buildPrintArea(){
   document.getElementById("printArea").innerHTML =
     `<div class="p-head">運行日報　<span class="p-sub">阪神食品株式会社</span><br>
        <span class="p-sub">${jpDate(selectedDay)}　お名前：${escHtml(name)}　（${recs.length}件）</span></div>${table}${moneyBlock}${commentBlock}`;
+  fitPrintToOnePage();
 }
+// 件数が多くてA4 1枚をこえる日は、全体を縮めて必ず1枚に収める
+function fitPrintToOnePage(){
+  const el=document.getElementById("printArea");
+  const PRINT_W=190;   // A4の横210mm − 左右の余白
+  const MAX_H=262;     // A4の縦297mm − 上下の余白 − PDFにした時のずれ分
+  el.style.zoom=""; el.style.width="";
+  el.style.cssText+=";display:block;position:absolute;left:-9999px;top:0;visibility:hidden;width:"+PRINT_W+"mm";
+  const mm=el.offsetHeight/3.7795;
+  el.style.display=el.style.position=el.style.left=el.style.top=el.style.visibility=el.style.width="";
+  if(mm>MAX_H){
+    const z=MAX_H/mm;
+    el.style.zoom=z;
+    el.style.width=(PRINT_W/z)+"mm";   // 縮めても横幅は紙いっぱいに
+  }
+}
+// ブラウザのメニューから直接印刷された時も、この日の日報を用意する
+window.addEventListener("beforeprint", buildPrintArea);
 // ホーム画面に追加した「アプリ」として開いているかどうか（この状態だと印刷が小さく崩れることがあるため）
 function isStandaloneApp(){
   return (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;
